@@ -1,0 +1,290 @@
+<section class="page">
+  <header class="page-header">
+    <div>
+      <h2>证明适用边界</h2>
+      <p>
+        登记每份证明对应的供应商、条款范围和材料版本；引用它的响应继承边界，越界或版本更新立即失效退回。
+      </p>
+    </div>
+    <div class="inline-actions">
+      <p-select
+        [options]="activeSuppliers()"
+        optionLabel="name"
+        optionValue="id"
+        [ngModel]="withdrawTarget()"
+        (ngModelChange)="withdrawSelectionChanged($event)"
+        placeholder="选择撤回供应商"
+        appendTo="body"
+        styleClass="withdraw-select"
+      />
+      <p-button
+        [label]="
+          withdrawArmed() ? '确认撤回（结论与快照将失效）' : '撤回供应商'
+        "
+        icon="pi pi-user-minus"
+        severity="danger"
+        [outlined]="!withdrawArmed()"
+        [disabled]="!withdrawTarget() || !canWithdraw()"
+        (onClick)="confirmWithdraw()"
+      />
+    </div>
+  </header>
+
+  <div class="version-summary">
+    <article>
+      <span>证明指纹</span>
+      <strong>{{ proofRows().length }}</strong>
+    </article>
+    <article>
+      <span>已登记边界</span>
+      <strong>{{ registeredCount() }}</strong>
+    </article>
+    <article>
+      <span>未确认引用</span>
+      <strong class="danger">{{ unconfirmedReferences().length }}</strong>
+    </article>
+    <article>
+      <span>已失效定稿</span>
+      <strong class="danger">{{ invalidatedVersions() }}</strong>
+    </article>
+  </div>
+
+  <section class="data-panel">
+    <div class="data-panel-header">
+      <div>
+        <h3>证明边界登记簿</h3>
+        <p>
+          当前角色：{{ role() }} · 评审员可登记和调整边界；材料版本更新、供应商撤回或引用越界会级联失效
+        </p>
+      </div>
+      @if (!canManageBoundary()) {
+        <p-tag value="当前角色仅可查看" severity="secondary" />
+      }
+    </div>
+    <p-table [value]="proofRows()" responsiveLayout="scroll">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>证明指纹</th>
+          <th>材料版本</th>
+          <th>适用供应商</th>
+          <th>适用条款</th>
+          <th>裁定人 / 版次</th>
+          <th>引用响应</th>
+          <th>操作</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-row>
+        <tr [class.row-unconfirmed]="row.unconfirmedCount > 0">
+          <td>
+            <span class="mono">{{ row.fingerprint }}</span>
+            <div class="table-secondary">
+              {{ row.references[0].response.attachmentName }}
+            </div>
+          </td>
+          <td>
+            @if (row.boundary) {
+              <span class="table-primary">{{ row.boundary.materialVersion }}</span>
+              <div class="table-secondary">
+                更新于 {{ row.boundary.updatedAt | date: "MM-dd HH:mm" }}
+              </div>
+            } @else {
+              <p-tag value="未登记" severity="secondary" />
+            }
+          </td>
+          <td>
+            @if (row.boundary) {
+              <div class="tag-row">
+                @for (supplierId of row.boundary.supplierIds; track supplierId) {
+                  <span class="scope-chip">{{ supplierName(supplierId) }}</span>
+                }
+              </div>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
+          <td>
+            @if (row.boundary) {
+              <div class="tag-row">
+                @for (clauseId of row.boundary.clauseIds; track clauseId) {
+                  <span class="scope-chip mono">{{ clauseCode(clauseId) }}</span>
+                }
+              </div>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
+          <td>
+            @if (row.boundary) {
+              {{ row.boundary.adjudicator }}
+              <div class="table-secondary">第 {{ row.boundary.revision }} 版</div>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
+          <td>
+            <div class="reference-list">
+              @for (entry of row.references; track entry.response.id) {
+                <div class="reference-item">
+                  <span>
+                    {{ entry.response.supplierName }} ·
+                    {{ entry.clause.code }}
+                  </span>
+                  <app-proof-reference-tag
+                    [state]="entry.response.referenceState"
+                  />
+                </div>
+              }
+            </div>
+          </td>
+          <td>
+            @if (row.boundary) {
+              <p-button
+                label="调整边界"
+                size="small"
+                [outlined]="true"
+                [disabled]="!canManageBoundary()"
+                (onClick)="openEdit(row)"
+              />
+            } @else {
+              <p-button
+                label="登记边界"
+                size="small"
+                severity="warn"
+                [disabled]="!canManageBoundary()"
+                (onClick)="openRegister(row)"
+              />
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
+
+  <section class="data-panel unconfirmed-panel">
+    <div class="data-panel-header">
+      <div>
+        <h3>未确认引用</h3>
+        <p>越界、待重新确认、未登记或已失效的引用会拦住签字定稿</p>
+      </div>
+      <p-tag
+        [value]="unconfirmedReferences().length + ' 项'"
+        [severity]="unconfirmedReferences().length ? 'danger' : 'success'"
+      />
+    </div>
+    @if (unconfirmedReferences().length) {
+      <p-table [value]="unconfirmedReferences()" responsiveLayout="scroll">
+        <ng-template pTemplate="header">
+          <tr>
+            <th>条款</th>
+            <th>供应商</th>
+            <th>证明指纹</th>
+            <th>引用状态</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-entry>
+          <tr>
+            <td>
+              <span class="mono">{{ entry.clause.code }}</span>
+              <div class="table-secondary">{{ entry.clause.title }}</div>
+            </td>
+            <td>{{ entry.response.supplierName }}</td>
+            <td class="mono">{{ entry.response.proofFingerprint }}</td>
+            <td>
+              <app-proof-reference-tag
+                [state]="entry.response.referenceState"
+              />
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    } @else {
+      <p class="empty-copy">所有证明引用均已确认，可以签字定稿。</p>
+    }
+  </section>
+</section>
+
+<p-dialog
+  [header]="
+    editing()?.mode === 'register' ? '登记证明适用边界' : '调整证明适用边界'
+  "
+  [modal]="true"
+  [visible]="dialogVisible()"
+  (visibleChange)="dialogVisible.set($event)"
+  [style]="{ width: 'min(620px, 94vw)' }"
+>
+  @if (editing(); as editing) {
+    <form
+      class="dialog-form"
+      [formGroup]="boundaryForm"
+      (ngSubmit)="saveBoundary()"
+    >
+      <div class="boundary-context">
+        <span class="mono">{{ editing.fingerprint }}</span>
+        @if (editing.mode === 'edit') {
+          <small>基于第 {{ baseRevision() }} 版修改</small>
+        }
+      </div>
+      @if (conflictForEditing(); as conflict) {
+        <div class="conflict-banner">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div>
+            <strong>该边界已被 {{ conflict.adjudicator }} 保存为第 {{ conflict.revision }} 版</strong>
+            <p>
+              你的修改未提交，草稿已保留。当前材料版本为「{{
+                conflict.materialVersion
+              }}」，请核对后再次保存。
+            </p>
+          </div>
+        </div>
+      }
+      <div class="field">
+        <label for="material-version">材料版本</label>
+        <input
+          id="material-version"
+          pInputText
+          formControlName="materialVersion"
+          placeholder="例如：2026-10 版 / 测评报告 V3"
+        />
+        <small>更新材料版本会使依赖旧版本的结论和定稿快照立即失效。</small>
+      </div>
+      <div class="field">
+        <label for="boundary-suppliers">适用供应商</label>
+        <p-multiselect
+          inputId="boundary-suppliers"
+          formControlName="supplierIds"
+          [options]="supplierOptions()"
+          optionLabel="label"
+          optionValue="value"
+          appendTo="body"
+        />
+        <small>范围外供应商的引用按越界处理。</small>
+      </div>
+      <div class="field">
+        <label for="boundary-clauses">适用条款范围</label>
+        <p-multiselect
+          inputId="boundary-clauses"
+          formControlName="clauseIds"
+          [options]="clauseOptions()"
+          optionLabel="label"
+          optionValue="value"
+          appendTo="body"
+        />
+        <small>范围外条款的引用按越界处理。</small>
+      </div>
+      <div class="inline-actions dialog-actions">
+        <p-button
+          label="取消"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="closeDialog()"
+        />
+        <p-button
+          type="submit"
+          [label]="editing.mode === 'register' ? '登记边界' : '保存边界'"
+          icon="pi pi-check"
+          [disabled]="boundaryForm.invalid"
+        />
+      </div>
+    </form>
+  }
+</p-dialog>

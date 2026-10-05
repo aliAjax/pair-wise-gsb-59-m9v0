@@ -7,8 +7,14 @@ import type {
   ClarificationInput,
   ClarificationResponseInput,
   FinalizeVersionInput,
+  ProofBoundary,
+  ProofBoundarySaveResult,
+  RegisterProofBoundaryInput,
   ReviewVersion,
   ReviewerOpinion,
+  Supplier,
+  UpdateProofBoundaryInput,
+  WithdrawSupplierInput,
   WorkspaceQueryResult,
 } from "../models/review.models";
 
@@ -39,6 +45,13 @@ const WORKSPACE_QUERY = gql`
           submittedBy
           submittedAt
           reviewRound
+          referenceState
+          proofReference {
+            boundaryId
+            materialVersion
+            confirmedBy
+            confirmedAt
+          }
           reviews {
             id
             responseId
@@ -48,6 +61,8 @@ const WORKSPACE_QUERY = gql`
             score
             comment
             createdAt
+            invalidatedAt
+            invalidReason
           }
           clarifications {
             id
@@ -74,6 +89,14 @@ const WORKSPACE_QUERY = gql`
         clauseCount
         responseCount
         contentHash
+        invalidatedAt
+        invalidReason
+        proofSnapshots {
+          fingerprint
+          materialVersion
+          responseIds
+          adjudicator
+        }
       }
       auditLogs {
         id
@@ -90,11 +113,24 @@ const WORKSPACE_QUERY = gql`
         differences
         overdueClarifications
         reusedProofs
+        unconfirmedProofs
         activeVersion
       }
       suppliers {
         id
         name
+        status
+      }
+      proofBoundaries {
+        id
+        fingerprint
+        materialVersion
+        supplierIds
+        clauseIds
+        adjudicator
+        revision
+        createdAt
+        updatedAt
       }
     }
   }
@@ -169,6 +205,51 @@ const FINALIZE_VERSION = gql`
 const RESET_REVIEW_DATA = gql`
   mutation ResetReviewData {
     resetReviewData
+  }
+`;
+
+const REGISTER_PROOF_BOUNDARY = gql`
+  mutation RegisterProofBoundary($input: RegisterProofBoundaryInput!) {
+    registerProofBoundary(input: $input) {
+      id
+      fingerprint
+      materialVersion
+      supplierIds
+      clauseIds
+      adjudicator
+      revision
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+const UPDATE_PROOF_BOUNDARY = gql`
+  mutation UpdateProofBoundary($input: UpdateProofBoundaryInput!) {
+    updateProofBoundary(input: $input) {
+      conflict
+      boundary {
+        id
+        fingerprint
+        materialVersion
+        supplierIds
+        clauseIds
+        adjudicator
+        revision
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+const WITHDRAW_SUPPLIER = gql`
+  mutation WithdrawSupplier($input: WithdrawSupplierInput!) {
+    withdrawSupplier(input: $input) {
+      id
+      name
+      status
+    }
   }
 `;
 
@@ -274,6 +355,61 @@ export class ReviewGraphqlService {
             throw new Error("GraphQL 未返回重置结果。");
           }
           return result.data.resetReviewData;
+        }),
+      );
+  }
+
+  registerProofBoundary(
+    input: RegisterProofBoundaryInput,
+  ): Observable<ProofBoundary> {
+    return this.apollo
+      .mutate<{ registerProofBoundary: ProofBoundary }>({
+        mutation: REGISTER_PROOF_BOUNDARY,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回证明边界。");
+          }
+          return result.data.registerProofBoundary;
+        }),
+      );
+  }
+
+  updateProofBoundary(
+    input: UpdateProofBoundaryInput,
+  ): Observable<ProofBoundarySaveResult> {
+    return this.apollo
+      .mutate<{ updateProofBoundary: ProofBoundarySaveResult }>({
+        mutation: UPDATE_PROOF_BOUNDARY,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回边界保存结果。");
+          }
+          return result.data.updateProofBoundary;
+        }),
+      );
+  }
+
+  withdrawSupplier(input: WithdrawSupplierInput): Observable<Supplier> {
+    return this.apollo
+      .mutate<{ withdrawSupplier: Supplier }>({
+        mutation: WITHDRAW_SUPPLIER,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回供应商状态。");
+          }
+          return result.data.withdrawSupplier;
         }),
       );
   }

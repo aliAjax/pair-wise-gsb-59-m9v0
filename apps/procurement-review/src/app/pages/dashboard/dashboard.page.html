@@ -13,6 +13,13 @@
         routerLink="/clauses"
       />
       <p-button
+        label="证明边界"
+        icon="pi pi-shield"
+        severity="secondary"
+        [outlined]="true"
+        routerLink="/proofs"
+      />
+      <p-button
         label="查看差异"
         icon="pi pi-table"
         severity="secondary"
@@ -48,6 +55,13 @@
         <span>证明重复使用</span>
         <strong>{{ stats.reusedProofs }}</strong>
         <small>需人工确认适用范围</small>
+      </article>
+      <article class="metric">
+        <span>未确认证明引用</span>
+        <strong [class.danger]="stats.unconfirmedProofs > 0">
+          {{ stats.unconfirmedProofs }}
+        </strong>
+        <small>越界 / 待确认会拦住定稿</small>
       </article>
       <article class="metric">
         <span>当前工作版本</span>

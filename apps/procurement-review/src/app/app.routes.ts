@@ -26,6 +26,12 @@ export const appRoutes: Routes = [
     title: "批量比对",
   },
   {
+    path: "proofs",
+    loadComponent: () =>
+      import("./pages/proofs/proofs.page").then((module) => module.ProofsPage),
+    title: "证明边界",
+  },
+  {
     path: "review",
     loadComponent: () =>
       import("./pages/review/review.page").then(

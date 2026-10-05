@@ -1,6 +1,6 @@
 .version-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 
@@ -129,6 +129,104 @@
 .dialog-actions {
   justify-content: flex-end;
   margin-top: 18px;
+}
+
+.snapshot-toggle {
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: #4b6a72;
+  cursor: pointer;
+}
+
+.snapshot-cell {
+  padding: 0 16px 14px 3rem;
+  background: #f7fafa;
+}
+
+.snapshot-grid {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dfe7e9;
+  border-radius: 6px;
+  background: #fff;
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+
+    strong {
+      color: #24444c;
+      font-size: 13px;
+    }
+
+    span {
+      color: #74858a;
+      font-size: 12px;
+    }
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+
+    th,
+    td {
+      padding: 6px 8px;
+      border-top: 1px solid #edf1f2;
+      color: #3c565e;
+      font-size: 12px;
+      text-align: left;
+    }
+
+    th {
+      border-top: 0;
+      color: #74858a;
+      font-weight: 600;
+    }
+  }
+}
+
+.invalid-note {
+  max-width: 220px;
+  color: #b42318;
+}
+
+.finalize-blocker {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 14px;
+  border: 1px solid #f1b7b2;
+  border-radius: 6px;
+  background: #fdf3f2;
+  color: #8f241c;
+
+  > i {
+    margin-top: 2px;
+  }
+
+  strong {
+    font-size: 13px;
+  }
+
+  ul {
+    display: grid;
+    gap: 5px;
+    margin: 8px 0 0;
+    padding-left: 18px;
+    font-size: 12px;
+  }
+
+  li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 }
 
 .finalize-note,

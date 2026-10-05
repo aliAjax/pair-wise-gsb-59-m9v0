@@ -154,6 +154,7 @@
           <td class="risk-cell">
             @let hasAnyDifference = clause.responses.some(hasDifference);
             @let hasAnyReuse = hasReusedProof(clause);
+            @let hasAnyUnconfirmed = hasUnconfirmedProof(clause);
             @if (hasAnyDifference) {
               <span class="risk-item warn">
                 <i class="pi pi-exclamation-circle"></i>
@@ -166,7 +167,13 @@
                 证明重复使用
               </span>
             }
-            @if (!hasAnyDifference && !hasAnyReuse) {
+            @if (hasAnyUnconfirmed) {
+              <span class="risk-item danger">
+                <i class="pi pi-shield"></i>
+                证明引用未确认
+              </span>
+            }
+            @if (!hasAnyDifference && !hasAnyReuse && !hasAnyUnconfirmed) {
               <span class="muted">未发现冲突</span>
             }
           </td>

@@ -125,6 +125,21 @@
                     <dd class="mono">{{ response.proofFingerprint }}</dd>
                   </div>
                   <div>
+                    <dt>证明引用</dt>
+                    <dd>
+                      <app-proof-reference-tag
+                        [state]="response.referenceState"
+                      />
+                      @if (response.proofReference; as reference) {
+                        <div class="table-secondary">
+                          {{ reference.materialVersion }} ·
+                          {{ reference.confirmedBy }} 确认于
+                          {{ reference.confirmedAt | date: "MM-dd HH:mm" }}
+                        </div>
+                      }
+                    </dd>
+                  </div>
+                  <div>
                     <dt>评审轮次</dt>
                     <dd>第 {{ response.reviewRound }} 轮</dd>
                   </div>
@@ -134,16 +149,24 @@
                 @if (response.reviews.length) {
                   <div class="opinion-list">
                     @for (review of response.reviews; track review.id) {
-                      <article>
+                      <article [class.opinion-invalid]="!!review.invalidatedAt">
                         <header>
                           <strong>{{ review.reviewer }}</strong>
                           <app-status-tag [status]="review.decision" />
                           @if (clause.type === "scoring") {
                             <span>{{ review.score }} 分</span>
                           }
+                          @if (review.invalidatedAt) {
+                            <p-tag value="已失效" severity="danger" />
+                          }
                           <time>{{ review.createdAt | date: "MM-dd HH:mm" }}</time>
                         </header>
                         <p>{{ review.comment }}</p>
+                        @if (review.invalidReason) {
+                          <p class="invalid-reason">
+                            失效原因：{{ review.invalidReason }}
+                          </p>
+                        }
                       </article>
                     }
                   </div>

@@ -30,6 +30,20 @@ export const typeDefs = parse(`
   enum VersionStatus {
     draft
     finalized
+    invalidated
+  }
+
+  enum SupplierStatus {
+    active
+    withdrawn
+  }
+
+  enum ProofReferenceState {
+    confirmed
+    pending_confirmation
+    out_of_bounds
+    unregistered
+    invalidated
   }
 
   type Clause {
@@ -55,6 +69,8 @@ export const typeDefs = parse(`
     score: Int!
     comment: String!
     createdAt: String!
+    invalidatedAt: String
+    invalidReason: String
   }
 
   type Clarification {
@@ -70,6 +86,32 @@ export const typeDefs = parse(`
     status: ClarificationStatus!
   }
 
+  type ProofReference {
+    boundaryId: String!
+    materialVersion: String!
+    confirmedBy: String!
+    confirmedAt: String!
+  }
+
+  type ProofBoundary {
+    id: ID!
+    fingerprint: String!
+    materialVersion: String!
+    supplierIds: [String!]!
+    clauseIds: [String!]!
+    adjudicator: String!
+    revision: Int!
+    createdAt: String!
+    updatedAt: String!
+  }
+
+  type ProofSnapshot {
+    fingerprint: String!
+    materialVersion: String!
+    responseIds: [String!]!
+    adjudicator: String!
+  }
+
   type SupplierResponse {
     id: ID!
     clauseId: String!
@@ -83,6 +125,8 @@ export const typeDefs = parse(`
     submittedBy: String!
     submittedAt: String!
     reviewRound: Int!
+    proofReference: ProofReference
+    referenceState: ProofReferenceState!
     reviews: [ReviewerOpinion!]!
     clarifications: [Clarification!]!
   }
@@ -98,6 +142,9 @@ export const typeDefs = parse(`
     clauseCount: Int!
     responseCount: Int!
     contentHash: String!
+    proofSnapshots: [ProofSnapshot!]!
+    invalidatedAt: String
+    invalidReason: String
   }
 
   type AuditLog {
@@ -116,12 +163,14 @@ export const typeDefs = parse(`
     differences: Int!
     overdueClarifications: Int!
     reusedProofs: Int!
+    unconfirmedProofs: Int!
     activeVersion: String!
   }
 
   type Supplier {
     id: ID!
     name: String!
+    status: SupplierStatus!
   }
 
   type WorkspaceData {
@@ -130,6 +179,7 @@ export const typeDefs = parse(`
     auditLogs: [AuditLog!]!
     dashboard: DashboardStats!
     suppliers: [Supplier!]!
+    proofBoundaries: [ProofBoundary!]!
   }
 
   input AssessmentInput {
@@ -160,6 +210,36 @@ export const typeDefs = parse(`
     role: ReviewRole!
   }
 
+  input RegisterProofBoundaryInput {
+    fingerprint: String!
+    materialVersion: String!
+    supplierIds: [String!]!
+    clauseIds: [String!]!
+    actor: String!
+    role: ReviewRole!
+  }
+
+  input UpdateProofBoundaryInput {
+    id: ID!
+    baseRevision: Int!
+    materialVersion: String!
+    supplierIds: [String!]!
+    clauseIds: [String!]!
+    actor: String!
+    role: ReviewRole!
+  }
+
+  input WithdrawSupplierInput {
+    supplierId: ID!
+    actor: String!
+    role: ReviewRole!
+  }
+
+  type ProofBoundarySaveResult {
+    conflict: Boolean!
+    boundary: ProofBoundary!
+  }
+
   type Query {
     workspace: WorkspaceData!
     dashboard: DashboardStats!
@@ -170,6 +250,9 @@ export const typeDefs = parse(`
     requestClarification(input: ClarificationInput!): Clarification!
     respondClarification(input: ClarificationResponseInput!): Clarification!
     finalizeVersion(input: FinalizeVersionInput!): ReviewVersion!
+    registerProofBoundary(input: RegisterProofBoundaryInput!): ProofBoundary!
+    updateProofBoundary(input: UpdateProofBoundaryInput!): ProofBoundarySaveResult!
+    withdrawSupplier(input: WithdrawSupplierInput!): Supplier!
     resetReviewData: Boolean!
   }
 `);

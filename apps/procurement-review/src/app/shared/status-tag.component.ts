@@ -4,6 +4,7 @@ import type {
   ClauseType,
   ClarificationStatus,
   ComplianceStatus,
+  ProofReferenceState,
   VersionStatus,
 } from "../core/models/review.models";
 
@@ -49,6 +50,18 @@ const versionConfig: Record<
 > = {
   draft: { label: "工作版", severity: "warn" },
   finalized: { label: "已定稿", severity: "success" },
+  invalidated: { label: "已失效", severity: "danger" },
+};
+
+const proofReferenceConfig: Record<
+  ProofReferenceState,
+  { label: string; severity: Severity }
+> = {
+  confirmed: { label: "引用已确认", severity: "success" },
+  pending_confirmation: { label: "待重新确认", severity: "warn" },
+  out_of_bounds: { label: "引用越界", severity: "danger" },
+  unregistered: { label: "未登记边界", severity: "secondary" },
+  invalidated: { label: "引用已失效", severity: "danger" },
 };
 
 @Component({
@@ -120,5 +133,23 @@ export class VersionTagComponent {
 
   severity(): Severity {
     return versionConfig[this.status()].severity;
+  }
+}
+
+@Component({
+  selector: "app-proof-reference-tag",
+  imports: [TagModule],
+  template: `<p-tag [value]="label()" [severity]="severity()" />`,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class ProofReferenceTagComponent {
+  readonly state = input<ProofReferenceState>("unregistered");
+
+  label(): string {
+    return proofReferenceConfig[this.state()].label;
+  }
+
+  severity(): Severity {
+    return proofReferenceConfig[this.state()].severity;
   }
 }

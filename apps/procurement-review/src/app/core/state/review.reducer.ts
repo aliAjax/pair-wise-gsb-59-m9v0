@@ -7,6 +7,7 @@ export const initialReviewState: ReviewState = {
   versions: [],
   auditLogs: [],
   suppliers: [],
+  proofBoundaries: [],
   filters: {
     keyword: "",
     category: "",
@@ -35,6 +36,7 @@ export const reviewReducer = createReducer(
       saving: false,
       error: undefined,
       toast,
+      proofConflict: undefined,
     }),
   ),
   on(ReviewActions.loadReviewDataFailure, (state, { error }) => ({
@@ -70,11 +72,23 @@ export const reviewReducer = createReducer(
     toast: undefined,
     error: undefined,
   })),
+  on(ReviewActions.proofBoundaryConflict, (state, { conflict }) => ({
+    ...state,
+    saving: false,
+    proofConflict: conflict,
+  })),
+  on(ReviewActions.clearProofConflict, (state) => ({
+    ...state,
+    proofConflict: undefined,
+  })),
   on(
     ReviewActions.submitAssessment,
     ReviewActions.requestClarification,
     ReviewActions.respondClarification,
     ReviewActions.finalizeVersion,
+    ReviewActions.registerProofBoundary,
+    ReviewActions.updateProofBoundary,
+    ReviewActions.withdrawSupplier,
     ReviewActions.resetReviewData,
     (state) => ({
       ...state,

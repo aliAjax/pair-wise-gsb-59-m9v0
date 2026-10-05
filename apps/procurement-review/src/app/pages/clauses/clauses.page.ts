@@ -43,6 +43,7 @@ import {
 import {
   ClarificationTagComponent,
   ClauseTypeTagComponent,
+  ProofReferenceTagComponent,
   StatusTagComponent,
 } from "../../shared/status-tag.component";
 
@@ -66,6 +67,7 @@ import {
     StatusTagComponent,
     ClauseTypeTagComponent,
     ClarificationTagComponent,
+    ProofReferenceTagComponent,
   ],
   templateUrl: "./clauses.page.html",
   styleUrl: "./clauses.page.scss",
@@ -142,6 +144,34 @@ export class ClausesPage {
     });
     if (duplicatedProof.size > 0) {
       risks.push("同一证明文件在多个响应中重复使用，需要确认适用范围");
+    }
+    if (
+      clause.responses.some(
+        (response) => response.referenceState === "out_of_bounds",
+      )
+    ) {
+      risks.push("存在引用越界的证明，相关结论已失效退回");
+    }
+    if (
+      clause.responses.some(
+        (response) => response.referenceState === "pending_confirmation",
+      )
+    ) {
+      risks.push("证明材料版本已更新，引用待重新确认");
+    }
+    if (
+      clause.responses.some(
+        (response) => response.referenceState === "unregistered",
+      )
+    ) {
+      risks.push("证明尚未登记适用边界，引用未确认");
+    }
+    if (
+      clause.responses.some(
+        (response) => response.referenceState === "invalidated",
+      )
+    ) {
+      risks.push("供应商已撤回，相关引用与结论已失效");
     }
     return risks;
   });

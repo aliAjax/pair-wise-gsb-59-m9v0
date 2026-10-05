@@ -5,9 +5,12 @@ import type {
   Clarification,
   Clause,
   ComplianceStatus,
+  ProofBoundary,
+  ProofSnapshot,
   ReviewDatabase,
   ReviewRole,
   ReviewerOpinion,
+  Supplier,
   SupplierResponse,
 } from "./types";
 
@@ -152,10 +155,10 @@ const clauses: Clause[] = [
   },
 ];
 
-const suppliers = [
-  { id: "SUP-A", name: "华云数科" },
-  { id: "SUP-B", name: "北辰信息" },
-  { id: "SUP-C", name: "南岭科技" },
+const suppliers: Supplier[] = [
+  { id: "SUP-A", name: "华云数科", status: "active" },
+  { id: "SUP-B", name: "北辰信息", status: "active" },
+  { id: "SUP-C", name: "南岭科技", status: "active" },
 ];
 
 const responseOverrides: Record<
@@ -369,6 +372,73 @@ const responses: SupplierResponse[] = clauses.flatMap((clause, clauseIndex) =>
   ),
 );
 
+// 证明适用边界种子数据：除 PROOF-SEC-B 外的指纹均已登记边界，
+// 未登记的 PROOF-SEC-B 用于演示“先登记边界、再确认引用、才能定稿”的流程。
+const UNREGISTERED_FINGERPRINTS = new Set(["PROOF-SEC-B"]);
+
+const proofBoundaries: ProofBoundary[] = (() => {
+  const byFingerprint = new Map<string, SupplierResponse[]>();
+  responses.forEach((response) => {
+    const list = byFingerprint.get(response.proofFingerprint) ?? [];
+    list.push(response);
+    byFingerprint.set(response.proofFingerprint, list);
+  });
+  return Array.from(byFingerprint.entries())
+    .filter(([fingerprint]) => !UNREGISTERED_FINGERPRINTS.has(fingerprint))
+    .map(([fingerprint, referencing], index) => ({
+      id: `PB-${String(index + 1).padStart(3, "0")}`,
+      fingerprint,
+      materialVersion: "2026-09 版",
+      supplierIds: Array.from(
+        new Set(referencing.map((response) => response.supplierId)),
+      ),
+      clauseIds: Array.from(
+        new Set(referencing.map((response) => response.clauseId)),
+      ),
+      adjudicator: "采购工作组",
+      revision: 1,
+      createdAt: "2026-09-23T10:00:00+08:00",
+      updatedAt: "2026-09-23T10:00:00+08:00",
+    }));
+})();
+
+// 引用继承边界：已登记边界的响应在提交时继承材料版本确认基线。
+responses.forEach((response) => {
+  const boundary = proofBoundaries.find(
+    (item) => item.fingerprint === response.proofFingerprint,
+  );
+  if (boundary) {
+    response.proofReference = {
+      boundaryId: boundary.id,
+      materialVersion: boundary.materialVersion,
+      confirmedBy: "采购工作组",
+      confirmedAt: "2026-09-23T10:30:00+08:00",
+    };
+  }
+});
+
+const buildProofSnapshots = (): ProofSnapshot[] => {
+  const byFingerprint = new Map<string, string[]>();
+  responses.forEach((response) => {
+    const list = byFingerprint.get(response.proofFingerprint) ?? [];
+    list.push(response.id);
+    byFingerprint.set(response.proofFingerprint, list);
+  });
+  return Array.from(byFingerprint.entries()).map(
+    ([fingerprint, responseIds]) => {
+      const boundary = proofBoundaries.find(
+        (item) => item.fingerprint === fingerprint,
+      );
+      return {
+        fingerprint,
+        materialVersion: boundary?.materialVersion ?? "未登记",
+        responseIds,
+        adjudicator: boundary?.adjudicator ?? "未登记",
+      };
+    },
+  );
+};
+
 const versions = [
   {
     id: "VER-001",
@@ -381,6 +451,7 @@ const versions = [
     clauseCount: clauses.length,
     responseCount: responses.length,
     contentHash: "a84f2d17",
+    proofSnapshots: buildProofSnapshots(),
   },
   {
     id: "VER-002",
@@ -393,6 +464,7 @@ const versions = [
     clauseCount: clauses.length,
     responseCount: responses.length,
     contentHash: "d91c6b42",
+    proofSnapshots: [],
   },
 ];
 
@@ -437,6 +509,7 @@ const buildSeed = (): ReviewDatabase => ({
   versions: structuredClone(versions),
   auditLogs: structuredClone(auditLogs),
   suppliers: structuredClone(suppliers),
+  proofBoundaries: structuredClone(proofBoundaries),
 });
 
 class ReviewDataStore {
@@ -446,9 +519,13 @@ class ReviewDataStore {
   constructor() {
     if (existsSync(this.runtimePath)) {
       try {
-        this.data = JSON.parse(
+        const parsed = JSON.parse(
           readFileSync(this.runtimePath, "utf8"),
         ) as ReviewDatabase;
+        // 旧版运行时数据缺少证明边界结构时回退到种子数据。
+        this.data = Array.isArray(parsed.proofBoundaries)
+          ? parsed
+          : buildSeed();
       } catch {
         this.data = buildSeed();
       }
@@ -498,3 +575,6 @@ export const createOpinionId = (): string =>
 
 export const createClarificationId = (): string =>
   `CL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+export const createProofBoundaryId = (): string =>
+  `PB-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;

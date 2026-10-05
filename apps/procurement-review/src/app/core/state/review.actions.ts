@@ -5,8 +5,12 @@ import type {
   ClarificationInput,
   ClarificationResponseInput,
   FinalizeVersionInput,
+  ProofConflict,
+  RegisterProofBoundaryInput,
   ReviewRole,
   ReviewState,
+  UpdateProofBoundaryInput,
+  WithdrawSupplierInput,
 } from "../models/review.models";
 
 export const ReviewActions = createActionGroup({
@@ -16,7 +20,12 @@ export const ReviewActions = createActionGroup({
     "Load Review Data Success": props<{
       workspace: Pick<
         ReviewState,
-        "clauses" | "versions" | "auditLogs" | "dashboard" | "suppliers"
+        | "clauses"
+        | "versions"
+        | "auditLogs"
+        | "dashboard"
+        | "suppliers"
+        | "proofBoundaries"
       >;
       toast?: string;
     }>(),
@@ -29,6 +38,11 @@ export const ReviewActions = createActionGroup({
     "Request Clarification": props<{ input: ClarificationInput }>(),
     "Respond Clarification": props<{ input: ClarificationResponseInput }>(),
     "Finalize Version": props<{ input: FinalizeVersionInput }>(),
+    "Register Proof Boundary": props<{ input: RegisterProofBoundaryInput }>(),
+    "Update Proof Boundary": props<{ input: UpdateProofBoundaryInput }>(),
+    "Proof Boundary Conflict": props<{ conflict: ProofConflict }>(),
+    "Clear Proof Conflict": emptyProps(),
+    "Withdraw Supplier": props<{ input: WithdrawSupplierInput }>(),
     "Reset Review Data": emptyProps(),
   },
 });

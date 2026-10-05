@@ -10,7 +10,14 @@ export type ReviewRole =
   | "reviewer_b"
   | "chair";
 export type ClarificationStatus = "open" | "responded" | "overdue";
-export type VersionStatus = "draft" | "finalized";
+export type VersionStatus = "draft" | "finalized" | "invalidated";
+export type SupplierStatus = "active" | "withdrawn";
+export type ProofReferenceState =
+  | "confirmed"
+  | "pending_confirmation"
+  | "out_of_bounds"
+  | "unregistered"
+  | "invalidated";
 
 export interface Clause {
   id: string;
@@ -34,6 +41,8 @@ export interface ReviewerOpinion {
   score: number;
   comment: string;
   createdAt: string;
+  invalidatedAt?: string;
+  invalidReason?: string;
 }
 
 export interface Clarification {
@@ -49,6 +58,32 @@ export interface Clarification {
   status: ClarificationStatus;
 }
 
+export interface ProofReference {
+  boundaryId: string;
+  materialVersion: string;
+  confirmedBy: string;
+  confirmedAt: string;
+}
+
+export interface ProofBoundary {
+  id: string;
+  fingerprint: string;
+  materialVersion: string;
+  supplierIds: string[];
+  clauseIds: string[];
+  adjudicator: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProofSnapshot {
+  fingerprint: string;
+  materialVersion: string;
+  responseIds: string[];
+  adjudicator: string;
+}
+
 export interface SupplierResponse {
   id: string;
   clauseId: string;
@@ -62,8 +97,15 @@ export interface SupplierResponse {
   submittedBy: string;
   submittedAt: string;
   reviewRound: number;
+  proofReference?: ProofReference;
   reviews: ReviewerOpinion[];
   clarifications: Clarification[];
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  status: SupplierStatus;
 }
 
 export interface ReviewVersion {
@@ -77,6 +119,9 @@ export interface ReviewVersion {
   clauseCount: number;
   responseCount: number;
   contentHash: string;
+  proofSnapshots: ProofSnapshot[];
+  invalidatedAt?: string;
+  invalidReason?: string;
 }
 
 export interface AuditLog {
@@ -95,6 +140,7 @@ export interface DashboardStats {
   differences: number;
   overdueClarifications: number;
   reusedProofs: number;
+  unconfirmedProofs: number;
   activeVersion: string;
 }
 
@@ -103,7 +149,8 @@ export interface ReviewDatabase {
   responses: SupplierResponse[];
   versions: ReviewVersion[];
   auditLogs: AuditLog[];
-  suppliers: Array<{ id: string; name: string }>;
+  suppliers: Supplier[];
+  proofBoundaries: ProofBoundary[];
 }
 
 export interface AssessmentInput {
@@ -132,4 +179,34 @@ export interface FinalizeVersionInput {
   label: string;
   actor: string;
   role: ReviewRole;
+}
+
+export interface RegisterProofBoundaryInput {
+  fingerprint: string;
+  materialVersion: string;
+  supplierIds: string[];
+  clauseIds: string[];
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface UpdateProofBoundaryInput {
+  id: string;
+  baseRevision: number;
+  materialVersion: string;
+  supplierIds: string[];
+  clauseIds: string[];
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface WithdrawSupplierInput {
+  supplierId: string;
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface ProofBoundarySaveResult {
+  conflict: boolean;
+  boundary: ProofBoundary;
 }

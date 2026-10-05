@@ -152,7 +152,17 @@ export class ComparisonPage {
       : false;
   }
 
+  isUnconfirmedProof(response: SupplierResponse | undefined): boolean {
+    return response ? response.referenceState !== "confirmed" : false;
+  }
+
   hasReusedProof(clause: Clause): boolean {
     return clause.responses.some((response) => this.isReusedProof(response));
+  }
+
+  hasUnconfirmedProof(clause: Clause): boolean {
+    return clause.responses.some((response) =>
+      this.isUnconfirmedProof(response),
+    );
   }
 }

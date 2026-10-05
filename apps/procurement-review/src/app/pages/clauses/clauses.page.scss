@@ -178,6 +178,21 @@ h4 {
     background: #fbfcfc;
   }
 
+  .opinion-invalid {
+    border-style: dashed;
+    background: #fdf3f2;
+
+    p {
+      color: #7a5a58;
+    }
+  }
+
+  .invalid-reason {
+    margin: 8px 0 0;
+    color: #b42318;
+    font-size: 12px;
+  }
+
   header {
     display: flex;
     align-items: center;

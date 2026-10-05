@@ -3,6 +3,7 @@ import type {
   Clause,
   ClauseTreeNode,
   ComplianceStatus,
+  ProofBoundary,
   ReviewState,
   SupplierResponse,
 } from "../models/review.models";
@@ -33,6 +34,16 @@ export const selectDashboard = createSelector(
 export const selectSuppliers = createSelector(
   selectReviewState,
   (state) => state.suppliers,
+);
+
+export const selectProofBoundaries = createSelector(
+  selectReviewState,
+  (state) => state.proofBoundaries,
+);
+
+export const selectProofConflict = createSelector(
+  selectReviewState,
+  (state) => state.proofConflict,
 );
 
 export const selectFilters = createSelector(
@@ -73,6 +84,7 @@ export const selectToast = createSelector(
 export const hasReviewDifference = (response: SupplierResponse): boolean => {
   const decisions = new Set(
     response.reviews
+      .filter((review) => !review.invalidatedAt)
       .filter((review) => review.decision !== "clarification")
       .map((review) => review.decision),
   );
@@ -216,3 +228,55 @@ export const responseDecisionSummary = (
   response: SupplierResponse,
 ): ComplianceStatus[] =>
   Array.from(new Set(response.reviews.map((review) => review.decision)));
+
+export interface ProofReferenceEntry {
+  clause: Clause;
+  response: SupplierResponse;
+}
+
+export interface ProofRow {
+  fingerprint: string;
+  boundary?: ProofBoundary;
+  references: ProofReferenceEntry[];
+  unconfirmedCount: number;
+}
+
+export const selectProofRows = createSelector(
+  selectClauses,
+  selectProofBoundaries,
+  (clauses, boundaries): ProofRow[] => {
+    const rows = new Map<string, ProofReferenceEntry[]>();
+    clauses.forEach((clause) => {
+      clause.responses.forEach((response) => {
+        const list = rows.get(response.proofFingerprint) ?? [];
+        list.push({ clause, response });
+        rows.set(response.proofFingerprint, list);
+      });
+    });
+    return Array.from(rows.entries())
+      .map(([fingerprint, references]) => {
+        const boundary = boundaries.find(
+          (item) => item.fingerprint === fingerprint,
+        );
+        return {
+          fingerprint,
+          boundary,
+          references,
+          unconfirmedCount: references.filter(
+            (entry) => entry.response.referenceState !== "confirmed",
+          ).length,
+        };
+      })
+      .sort((a, b) => b.unconfirmedCount - a.unconfirmedCount);
+  },
+);
+
+export const selectUnconfirmedReferences = createSelector(
+  selectClauses,
+  (clauses): ProofReferenceEntry[] =>
+    clauses.flatMap((clause) =>
+      clause.responses
+        .filter((response) => response.referenceState !== "confirmed")
+        .map((response) => ({ clause, response })),
+    ),
+);

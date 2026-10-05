@@ -10,7 +10,14 @@ export type ReviewRole =
   | "reviewer_b"
   | "chair";
 export type ClarificationStatus = "open" | "responded" | "overdue";
-export type VersionStatus = "draft" | "finalized";
+export type VersionStatus = "draft" | "finalized" | "invalidated";
+export type SupplierStatus = "active" | "withdrawn";
+export type ProofReferenceState =
+  | "confirmed"
+  | "pending_confirmation"
+  | "out_of_bounds"
+  | "unregistered"
+  | "invalidated";
 
 export interface ReviewerOpinion {
   id: string;
@@ -21,6 +28,8 @@ export interface ReviewerOpinion {
   score: number;
   comment: string;
   createdAt: string;
+  invalidatedAt?: string;
+  invalidReason?: string;
 }
 
 export interface Clarification {
@@ -36,6 +45,32 @@ export interface Clarification {
   status: ClarificationStatus;
 }
 
+export interface ProofReference {
+  boundaryId: string;
+  materialVersion: string;
+  confirmedBy: string;
+  confirmedAt: string;
+}
+
+export interface ProofBoundary {
+  id: string;
+  fingerprint: string;
+  materialVersion: string;
+  supplierIds: string[];
+  clauseIds: string[];
+  adjudicator: string;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProofSnapshot {
+  fingerprint: string;
+  materialVersion: string;
+  responseIds: string[];
+  adjudicator: string;
+}
+
 export interface SupplierResponse {
   id: string;
   clauseId: string;
@@ -49,6 +84,8 @@ export interface SupplierResponse {
   submittedBy: string;
   submittedAt: string;
   reviewRound: number;
+  proofReference?: ProofReference;
+  referenceState: ProofReferenceState;
   reviews: ReviewerOpinion[];
   clarifications: Clarification[];
 }
@@ -83,6 +120,9 @@ export interface ReviewVersion {
   clauseCount: number;
   responseCount: number;
   contentHash: string;
+  proofSnapshots: ProofSnapshot[];
+  invalidatedAt?: string;
+  invalidReason?: string;
 }
 
 export interface AuditLog {
@@ -101,12 +141,14 @@ export interface DashboardStats {
   differences: number;
   overdueClarifications: number;
   reusedProofs: number;
+  unconfirmedProofs: number;
   activeVersion: string;
 }
 
 export interface Supplier {
   id: string;
   name: string;
+  status: SupplierStatus;
 }
 
 export interface ClauseFilters {
@@ -122,6 +164,7 @@ export interface ReviewState {
   auditLogs: AuditLog[];
   dashboard?: DashboardStats;
   suppliers: Supplier[];
+  proofBoundaries: ProofBoundary[];
   filters: ClauseFilters;
   role: ReviewRole;
   selectedSupplierIds: string[];
@@ -129,6 +172,7 @@ export interface ReviewState {
   saving: boolean;
   error?: string;
   toast?: string;
+  proofConflict?: ProofConflict;
 }
 
 export interface WorkspaceQueryResult {
@@ -138,6 +182,7 @@ export interface WorkspaceQueryResult {
     auditLogs: AuditLog[];
     dashboard: DashboardStats;
     suppliers: Supplier[];
+    proofBoundaries: ProofBoundary[];
   };
 }
 
@@ -169,6 +214,43 @@ export interface FinalizeVersionInput {
   role: ReviewRole;
 }
 
+export interface RegisterProofBoundaryInput {
+  fingerprint: string;
+  materialVersion: string;
+  supplierIds: string[];
+  clauseIds: string[];
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface UpdateProofBoundaryInput {
+  id: string;
+  baseRevision: number;
+  materialVersion: string;
+  supplierIds: string[];
+  clauseIds: string[];
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface WithdrawSupplierInput {
+  supplierId: string;
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface ProofBoundarySaveResult {
+  conflict: boolean;
+  boundary: ProofBoundary;
+}
+
+export interface ProofConflict {
+  fingerprint: string;
+  revision: number;
+  materialVersion: string;
+  adjudicator: string;
+}
+
 export const roleProfiles: Record<ReviewRole, { name: string; label: string }> = {
   procurement: { name: "采购专员", label: "采购人员" },
   reviewer_a: { name: "陈评审", label: "技术评审员 A" },
@@ -194,4 +276,12 @@ export const statusSeverity: Record<ComplianceStatus, string> = {
   deviation: "danger",
   clarification: "warn",
   pending: "secondary",
+};
+
+export const proofReferenceStateLabels: Record<ProofReferenceState, string> = {
+  confirmed: "已确认",
+  pending_confirmation: "待重新确认",
+  out_of_bounds: "引用越界",
+  unregistered: "未登记边界",
+  invalidated: "已失效",
 };

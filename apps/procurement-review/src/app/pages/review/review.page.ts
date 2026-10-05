@@ -27,10 +27,12 @@ import {
   selectClauses,
   selectPendingClarifications,
   selectRole,
+  selectUnconfirmedReferences,
   selectVersions,
 } from "../../core/state/review.selectors";
 import {
   ClarificationTagComponent,
+  ProofReferenceTagComponent,
   StatusTagComponent,
   VersionTagComponent,
 } from "../../shared/status-tag.component";
@@ -56,6 +58,7 @@ interface PendingClarification {
     ClarificationTagComponent,
     StatusTagComponent,
     VersionTagComponent,
+    ProofReferenceTagComponent,
   ],
   templateUrl: "./review.page.html",
   styleUrl: "./review.page.scss",
@@ -77,9 +80,14 @@ export class ReviewPage {
     this.store.select(selectPendingClarifications),
     { initialValue: [] as PendingClarification[] },
   );
+  readonly unconfirmedReferences = toSignal(
+    this.store.select(selectUnconfirmedReferences),
+    { initialValue: [] },
+  );
   readonly finalizeVisible = signal(false);
   readonly responseVisible = signal(false);
   readonly selectedClarification = signal<PendingClarification | null>(null);
+  readonly expandedVersions = signal<Record<string, boolean>>({});
   readonly canFinalize = computed(() => this.role() === "chair");
   readonly canRespond = computed(() =>
     ["procurement", "chair"].includes(this.role()),
@@ -94,6 +102,20 @@ export class ReviewPage {
   readonly finalizedCount = computed(
     () => this.versions().filter((version) => version.status === "finalized").length,
   );
+  readonly canSubmitFinalize = computed(
+    () => this.canFinalize() && this.unconfirmedReferences().length === 0,
+  );
+
+  toggleVersion(versionId: string): void {
+    this.expandedVersions.update((current) => ({
+      ...current,
+      [versionId]: !current[versionId],
+    }));
+  }
+
+  isVersionExpanded(versionId: string): boolean {
+    return !!this.expandedVersions()[versionId];
+  }
 
   readonly finalizeForm = new FormGroup({
     label: new FormControl("", {

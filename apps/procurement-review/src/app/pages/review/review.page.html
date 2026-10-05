@@ -31,6 +31,10 @@
       <span>未完成澄清</span>
       <strong class="danger">{{ pendingClarifications().length }}</strong>
     </article>
+    <article>
+      <span>未确认证明引用</span>
+      <strong class="danger">{{ unconfirmedReferences().length }}</strong>
+    </article>
   </div>
 
   <div class="review-grid">
@@ -38,12 +42,18 @@
       <div class="data-panel-header">
         <div>
           <h3>版本历史</h3>
-          <p>定稿版本保存内容哈希和签署人</p>
+          <p>定稿版本保存内容哈希、签署人和证明快照</p>
         </div>
       </div>
-      <p-table [value]="versions()" responsiveLayout="scroll">
+      <p-table
+        [value]="versions()"
+        dataKey="id"
+        [expandedRowKeys]="expandedVersions()"
+        responsiveLayout="scroll"
+      >
         <ng-template pTemplate="header">
           <tr>
+            <th style="width: 3rem"></th>
             <th>版本</th>
             <th>名称</th>
             <th>状态</th>
@@ -54,6 +64,22 @@
         </ng-template>
         <ng-template pTemplate="body" let-version>
           <tr>
+            <td>
+              @if (version.proofSnapshots.length) {
+                <button
+                  type="button"
+                  class="snapshot-toggle"
+                  (click)="toggleVersion(version.id)"
+                  [attr.aria-label]="'展开证明快照 ' + version.version"
+                >
+                  <i
+                    class="pi"
+                    [class.pi-chevron-down]="isVersionExpanded(version.id)"
+                    [class.pi-chevron-right]="!isVersionExpanded(version.id)"
+                  ></i>
+                </button>
+              }
+            </td>
             <td class="mono">{{ version.version }}</td>
             <td>
               <span class="table-primary">{{ version.label }}</span>
@@ -62,7 +88,14 @@
                 {{ version.signedBy.length ? version.signedBy.join("、") : "未签署" }}
               </div>
             </td>
-            <td><app-version-tag [status]="version.status" /></td>
+            <td>
+              <app-version-tag [status]="version.status" />
+              @if (version.invalidReason) {
+                <div class="table-secondary invalid-note">
+                  {{ version.invalidReason }}
+                </div>
+              }
+            </td>
             <td>
               {{ version.responseCount }} 项
               <div class="table-secondary">
@@ -74,6 +107,44 @@
               {{ version.createdBy }}
               <div class="table-secondary">
                 {{ version.createdAt | date: "yyyy-MM-dd HH:mm" }}
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="expandedrow" let-version>
+          <tr>
+            <td colspan="7" class="snapshot-cell">
+              <div class="snapshot-grid">
+                <header>
+                  <strong>证明快照</strong>
+                  <span>
+                    定稿时记录证明版本、适用响应和裁定人，共
+                    {{ version.proofSnapshots.length }} 组
+                  </span>
+                </header>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>证明指纹</th>
+                      <th>材料版本</th>
+                      <th>适用响应</th>
+                      <th>裁定人</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (
+                      snapshot of version.proofSnapshots;
+                      track snapshot.fingerprint
+                    ) {
+                      <tr>
+                        <td class="mono">{{ snapshot.fingerprint }}</td>
+                        <td>{{ snapshot.materialVersion }}</td>
+                        <td>{{ snapshot.responseIds.length }} 项</td>
+                        <td>{{ snapshot.adjudicator }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
             </td>
           </tr>
@@ -194,8 +265,36 @@
       />
     </div>
     <div class="finalize-note">
-      定稿前系统会检查未完成澄清。定稿后当前版本会生成内容哈希并锁定签署人。
+      定稿前系统会检查未完成澄清和未确认证明引用。定稿后当前版本会生成内容哈希、
+      证明快照（证明版本、适用响应、裁定人）并锁定签署人。
     </div>
+    @if (unconfirmedReferences().length) {
+      <div class="finalize-blocker">
+        <i class="pi pi-ban"></i>
+        <div>
+          <strong>
+            仍有 {{ unconfirmedReferences().length }} 项证明引用未确认，不能签字定稿。
+          </strong>
+          <ul>
+            @for (
+              entry of unconfirmedReferences().slice(0, 5);
+              track entry.response.id
+            ) {
+              <li>
+                {{ entry.clause.code }} · {{ entry.response.supplierName }} ·
+                {{ entry.response.proofFingerprint }}
+                <app-proof-reference-tag
+                  [state]="entry.response.referenceState"
+                />
+              </li>
+            }
+            @if (unconfirmedReferences().length > 5) {
+              <li>……另 {{ unconfirmedReferences().length - 5 }} 项，请前往“证明边界”处理。</li>
+            }
+          </ul>
+        </div>
+      </div>
+    }
     <div class="inline-actions dialog-actions">
       <p-button
         label="取消"
@@ -207,7 +306,7 @@
         type="submit"
         label="签字并锁定"
         icon="pi pi-lock"
-        [disabled]="finalizeForm.invalid"
+        [disabled]="finalizeForm.invalid || !canSubmitFinalize()"
       />
     </div>
   </form>

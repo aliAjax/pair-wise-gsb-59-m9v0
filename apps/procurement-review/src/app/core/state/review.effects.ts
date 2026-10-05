@@ -132,6 +132,93 @@ export class ReviewEffects {
     ),
   );
 
+  registerProofBoundary$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ReviewActions.registerProofBoundary),
+      switchMap(({ input }) =>
+        this.graphql.registerProofBoundary(input).pipe(
+          switchMap(() => this.graphql.loadWorkspace()),
+          map(({ workspace }) =>
+            ReviewActions.loadReviewDataSuccess({
+              workspace,
+              toast: "证明适用边界已登记，范围内响应已继承边界。",
+            }),
+          ),
+          catchError((error: unknown) =>
+            of(
+              ReviewActions.loadReviewDataFailure({
+                error: errorMessage(error),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  updateProofBoundary$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ReviewActions.updateProofBoundary),
+      switchMap(({ input }) =>
+        this.graphql.updateProofBoundary(input).pipe(
+          switchMap((result) => {
+            if (result.conflict) {
+              return of(
+                ReviewActions.proofBoundaryConflict({
+                  conflict: {
+                    fingerprint: result.boundary.fingerprint,
+                    revision: result.boundary.revision,
+                    materialVersion: result.boundary.materialVersion,
+                    adjudicator: result.boundary.adjudicator,
+                  },
+                }),
+              );
+            }
+            return this.graphql.loadWorkspace().pipe(
+              map(({ workspace }) =>
+                ReviewActions.loadReviewDataSuccess({
+                  workspace,
+                  toast: "证明边界已更新，受影响结论与快照已失效退回。",
+                }),
+              ),
+            );
+          }),
+          catchError((error: unknown) =>
+            of(
+              ReviewActions.loadReviewDataFailure({
+                error: errorMessage(error),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  withdrawSupplier$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(ReviewActions.withdrawSupplier),
+      switchMap(({ input }) =>
+        this.graphql.withdrawSupplier(input).pipe(
+          switchMap(() => this.graphql.loadWorkspace()),
+          map(({ workspace }) =>
+            ReviewActions.loadReviewDataSuccess({
+              workspace,
+              toast: "供应商已撤回，相关结论与定稿快照已失效。",
+            }),
+          ),
+          catchError((error: unknown) =>
+            of(
+              ReviewActions.loadReviewDataFailure({
+                error: errorMessage(error),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
   resetReviewData$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ReviewActions.resetReviewData),
