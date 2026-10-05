@@ -130,6 +130,122 @@
                   </div>
                 </dl>
 
+                <div class="proof-boundary-card">
+                  <header>
+                    <div>
+                      <h4>证明适用边界</h4>
+                      <p>引用登记的证明会继承其供应商、条款范围与材料版本</p>
+                    </div>
+                    <app-proof-reference-tag [status]="selectedProofStatus()" />
+                  </header>
+                  @if (selectedBoundary(); as boundary) {
+                    <dl class="boundary-meta">
+                      <div>
+                        <dt>材料版本</dt>
+                        <dd>
+                          V{{ boundary.version }} · {{ boundary.versionLabel }}
+                          @if (boundary.withdrawn) {
+                            <span class="danger-text">（供应商已撤回）</span>
+                          }
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>适用供应商</dt>
+                        <dd>{{ boundary.supplierName }}</dd>
+                      </div>
+                      <div>
+                        <dt>条款范围</dt>
+                        <dd>{{ boundary.clauseIds.length }} 个条款</dd>
+                      </div>
+                      <div>
+                        <dt>边界版本</dt>
+                        <dd>第 {{ boundary.boundaryVersion }} 版</dd>
+                      </div>
+                      <div>
+                        <dt>登记裁定人</dt>
+                        <dd>
+                          {{ boundary.updatedBy }} ·
+                          {{ boundary.updatedAt | date: "MM-dd HH:mm" }}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>本响应引用</dt>
+                        <dd>
+                          @if (response.proofConfirmedAt) {
+                            {{ response.proofConfirmedBy }} 于
+                            {{ response.proofConfirmedAt | date: "MM-dd HH:mm" }}
+                            确认
+                          } @else {
+                            尚未确认
+                          }
+                        </dd>
+                      </div>
+                    </dl>
+                    <div class="boundary-actions">
+                      <p-button
+                        label="编辑边界"
+                        icon="pi pi-pencil"
+                        size="small"
+                        severity="secondary"
+                        [outlined]="true"
+                        [disabled]="!canManageBoundary() || boundary.withdrawn"
+                        (onClick)="openBoundaryDialog(response)"
+                      />
+                      <p-button
+                        label="登记新版本"
+                        icon="pi pi-upload"
+                        size="small"
+                        severity="secondary"
+                        [outlined]="true"
+                        [disabled]="!canManageBoundary() || boundary.withdrawn"
+                        (onClick)="openVersionDialog()"
+                      />
+                      <p-button
+                        label="供应商撤回"
+                        icon="pi pi-times-circle"
+                        size="small"
+                        severity="danger"
+                        [outlined]="true"
+                        [disabled]="!canManageBoundary() || boundary.withdrawn"
+                        (onClick)="withdrawProof()"
+                      />
+                      <p-button
+                        label="确认本响应引用"
+                        icon="pi pi-check-circle"
+                        size="small"
+                        [disabled]="
+                          !canManageBoundary() ||
+                          boundary.withdrawn ||
+                          selectedProofStatus() === 'confirmed'
+                        "
+                        (onClick)="confirmProofReference()"
+                      />
+                    </div>
+                    @if (selectedProofStatus() === 'out_of_scope') {
+                      <p class="proof-warning">
+                        该响应不在证明适用范围内（供应商或条款越界），引用不能确认，评审结论需改用对应材料后重审。
+                      </p>
+                    } @else if (selectedProofStatus() === 'stale') {
+                      <p class="proof-warning">
+                        证明已更新版本或被撤回，继承该材料的评审结论已退回待重新确认。
+                      </p>
+                    }
+                  } @else {
+                    <p class="proof-warning">
+                      该证明指纹尚未登记适用边界，所有引用都无法确认，签字定稿将被拦截。
+                    </p>
+                    <div class="boundary-actions">
+                      <p-button
+                        label="登记证明边界"
+                        icon="pi pi-shield"
+                        size="small"
+                        [disabled]="!canManageBoundary()"
+                        (onClick)="openBoundaryDialog(response)"
+                      />
+                    </div>
+                  }
+                </div>
+
                 <h4>独立评审意见</h4>
                 @if (response.reviews.length) {
                   <div class="opinion-list">
@@ -310,6 +426,132 @@
         label="发出澄清"
         icon="pi pi-send"
         [disabled]="clarificationForm.invalid"
+      />
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  header="登记证明适用边界"
+  [modal]="true"
+  [visible]="boundaryVisible()"
+  (visibleChange)="boundaryVisible.set($event)"
+  [style]="{ width: 'min(620px, 94vw)' }"
+>
+  <form class="dialog-form" [formGroup]="boundaryForm" (ngSubmit)="saveBoundary()">
+    <div class="field">
+      <label>证明指纹</label>
+      <p class="mono fingerprint-readonly">{{ boundaryFingerprint() }}</p>
+    </div>
+    <div class="field">
+      <label for="proof-supplier">适用供应商</label>
+      <p-select
+        inputId="proof-supplier"
+        formControlName="supplierId"
+        [options]="supplierOptions()"
+        optionLabel="name"
+        optionValue="id"
+        appendTo="body"
+      />
+      <small>仅该供应商的响应可以继承本证明边界。</small>
+    </div>
+    <div class="field">
+      <label for="proof-clauses">适用条款范围</label>
+      <p-multiselect
+        inputId="proof-clauses"
+        formControlName="clauseIds"
+        [options]="clauseOptions()"
+        optionLabel="name"
+        optionValue="id"
+        appendTo="body"
+        [filter]="true"
+      />
+      <small>范围外的引用判定为越界，不能确认并会退回重审。</small>
+    </div>
+    <div class="field">
+      <label for="proof-version">材料版本</label>
+      <input
+        id="proof-version"
+        pInputText
+        formControlName="versionLabel"
+        placeholder="例如：2026 年复测版（V2）"
+      />
+    </div>
+
+    @if (boundaryConflict(); as serverBoundary) {
+      <div class="conflict-note">
+        <strong><i class="pi pi-exclamation-triangle"></i> 边界并发冲突</strong>
+        <p>
+          另一位评审员已先保存第 {{ serverBoundary.boundaryVersion }} 版：
+          {{ serverBoundary.supplierName }} ·
+          {{ serverBoundary.clauseIds.length }} 个条款 ·
+          {{ serverBoundary.versionLabel }}。
+        </p>
+        <p>您的编辑仍保留在表单草稿中，可在查看先到版本后决定覆盖保存或放弃。</p>
+      </div>
+    }
+
+    <div class="inline-actions dialog-actions">
+      <p-button
+        label="取消"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="boundaryVisible.set(false)"
+      />
+      @if (boundaryConflict()) {
+        <p-button
+          type="button"
+          label="保留草稿并覆盖保存"
+          icon="pi pi-clone"
+          severity="warn"
+          [disabled]="boundaryForm.invalid"
+          (onClick)="overwriteBoundaryDraft()"
+        />
+      } @else {
+        <p-button
+          type="submit"
+          label="保存边界"
+          icon="pi pi-check"
+          [disabled]="boundaryForm.invalid"
+        />
+      }
+    </div>
+  </form>
+</p-dialog>
+
+<p-dialog
+  header="登记证明材料新版本"
+  [modal]="true"
+  [visible]="versionVisible()"
+  (visibleChange)="versionVisible.set($event)"
+  [style]="{ width: 'min(560px, 94vw)' }"
+>
+  <form class="dialog-form" [formGroup]="versionForm" (ngSubmit)="updateProofVersion()">
+    <p class="version-impact-note">
+      材料版本更新后，引用该证明的评审结论与已定稿快照将立即失效，相关响应退回待重新确认。
+    </p>
+    <div class="field">
+      <label for="new-proof-version">新版本标识</label>
+      <input
+        id="new-proof-version"
+        pInputText
+        formControlName="versionLabel"
+        placeholder="例如：2026 年复测版（V3）"
+      />
+    </div>
+    <div class="inline-actions dialog-actions">
+      <p-button
+        label="取消"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="versionVisible.set(false)"
+      />
+      <p-button
+        type="submit"
+        label="登记并失效旧结论"
+        icon="pi pi-upload"
+        severity="warn"
+        [disabled]="versionForm.invalid"
       />
     </div>
   </form>

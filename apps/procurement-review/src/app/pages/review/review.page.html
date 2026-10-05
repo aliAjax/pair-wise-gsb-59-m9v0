@@ -9,10 +9,23 @@
     <p-button
       label="汇总签字定稿"
       icon="pi pi-verified"
-      [disabled]="!canFinalize()"
+      [disabled]="!canFinalize() || finalizeBlocked()"
       (onClick)="openFinalize()"
     />
   </header>
+
+  @if (finalizeBlocked()) {
+    <div class="finalize-blocker">
+      <i class="pi pi-lock"></i>
+      <div>
+        <strong>签字定稿被拦截</strong>
+        <span>
+          {{ pendingClarifications().length }} 项未完成澄清、
+          {{ unconfirmedReferences().length }} 项证明引用未确认，需全部处理后才能定稿。
+        </span>
+      </div>
+    </div>
+  }
 
   <div class="version-summary">
     <article>
@@ -30,6 +43,12 @@
     <article>
       <span>未完成澄清</span>
       <strong class="danger">{{ pendingClarifications().length }}</strong>
+    </article>
+    <article>
+      <span>未确认证明引用</span>
+      <strong [class.danger]="unconfirmedReferences().length > 0">
+        {{ unconfirmedReferences().length }}
+      </strong>
     </article>
   </div>
 
@@ -77,6 +96,26 @@
               </div>
             </td>
           </tr>
+          <tr>
+            <td colspan="6" class="binding-row">
+              <strong>定稿快照证明固化：</strong>
+              @if (version.proofBindings?.length) {
+                <ul class="binding-list">
+                  @for (binding of version.proofBindings; track binding.fingerprint) {
+                    <li [title]="bindingDetail(binding)">
+                      <span class="mono">{{ binding.fingerprint }}</span>
+                      {{ binding.attachmentName }} · V{{ binding.version }}
+                      {{ binding.versionLabel }} · {{ binding.supplierName }} ·
+                      {{ binding.responseIds.length }} 个适用响应 ·
+                      裁定人 {{ binding.registeredBy }}
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <span class="table-secondary">该快照未固化证明版本绑定。</span>
+              }
+            </td>
+          </tr>
         </ng-template>
       </p-table>
     </section>
@@ -121,6 +160,64 @@
       }
     </aside>
   </div>
+
+  <section class="data-panel proof-blocker-panel">
+    <div class="data-panel-header">
+      <div>
+        <h3>证明引用确认队列</h3>
+        <p>未确认、材料已更新或越界的引用会拦住签字定稿，需回到条款评审逐响应处理。</p>
+      </div>
+      <p-tag
+        [value]="unconfirmedReferences().length + ' 项未确认'"
+        [severity]="unconfirmedReferences().length ? 'danger' : 'success'"
+      />
+    </div>
+    <p-table
+      [value]="unconfirmedReferences()"
+      [paginator]="true"
+      [rows]="6"
+      responsiveLayout="scroll"
+      styleClass="compact-table"
+    >
+      <ng-template pTemplate="header">
+        <tr>
+          <th>条款 / 证明</th>
+          <th>供应商响应</th>
+          <th>引用状态</th>
+          <th>处理入口</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td>
+            <span class="mono">{{ item.clause.code }}</span>
+            <div class="table-secondary">{{ item.clause.title }}</div>
+            <small class="mono">{{ item.response.proofFingerprint }}</small>
+          </td>
+          <td>
+            {{ item.response.supplierName }}
+            <div class="table-secondary">{{ item.response.id }}</div>
+          </td>
+          <td>
+            <app-proof-reference-tag [status]="item.status" />
+            @if (item.response.proofConfirmedBy) {
+              <div class="table-secondary">
+                原确认人 {{ item.response.proofConfirmedBy }}，结论已退回
+              </div>
+            }
+          </td>
+          <td>
+            <a routerLink="/clauses" class="text-link">前往条款评审处理</a>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="4">全部证明引用均在适用边界内确认，可以进入签字定稿检查。</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </section>
 
   <section class="data-panel difference-panel">
     <div class="data-panel-header">
@@ -194,7 +291,7 @@
       />
     </div>
     <div class="finalize-note">
-      定稿前系统会检查未完成澄清。定稿后当前版本会生成内容哈希并锁定签署人。
+      定稿前系统会检查未完成澄清与未确认证明引用。定稿快照将逐份固化证明版本、适用响应和裁定人，之后证明变更会使快照立即失效。
     </div>
     <div class="inline-actions dialog-actions">
       <p-button
@@ -207,7 +304,7 @@
         type="submit"
         label="签字并锁定"
         icon="pi pi-lock"
-        [disabled]="finalizeForm.invalid"
+        [disabled]="finalizeForm.invalid || finalizeBlocked()"
       />
     </div>
   </form>

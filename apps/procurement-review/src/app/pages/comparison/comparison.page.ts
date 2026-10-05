@@ -14,19 +14,24 @@ import {
   clauseTypeLabels,
   type Clause,
   type ClauseType,
+  type ProofBoundary,
+  type ProofReferenceStatus,
   type SupplierResponse,
 } from "../../core/models/review.models";
 import { ReviewActions } from "../../core/state/review.actions";
 import {
   hasReviewDifference,
+  proofReferenceStatusOf,
   selectClauses,
   selectFilteredClauses,
   selectFilters,
+  selectProofBoundaries,
   selectSelectedSupplierIds,
   selectSuppliers,
 } from "../../core/state/review.selectors";
 import {
   ClauseTypeTagComponent,
+  ProofReferenceTagComponent,
   StatusTagComponent,
 } from "../../shared/status-tag.component";
 
@@ -44,6 +49,7 @@ import {
     TagModule,
     StatusTagComponent,
     ClauseTypeTagComponent,
+    ProofReferenceTagComponent,
   ],
   templateUrl: "./comparison.page.html",
   styleUrl: "./comparison.page.scss",
@@ -70,6 +76,10 @@ export class ComparisonPage {
   readonly suppliers = toSignal(this.store.select(selectSuppliers), {
     initialValue: [],
   });
+  readonly proofBoundaries = toSignal(
+    this.store.select(selectProofBoundaries),
+    { initialValue: [] as ProofBoundary[] },
+  );
   readonly selectedSupplierIds = toSignal(
     this.store.select(selectSelectedSupplierIds),
     { initialValue: [] },
@@ -150,6 +160,17 @@ export class ComparisonPage {
     return response
       ? (this.proofCounts().get(response.proofFingerprint) ?? 0) > 1
       : false;
+  }
+
+  proofStatus(response: SupplierResponse | undefined): ProofReferenceStatus {
+    if (!response) {
+      return "unregistered";
+    }
+    const boundary =
+      this.proofBoundaries().find(
+        (item) => item.fingerprint === response.proofFingerprint,
+      ) ?? null;
+    return proofReferenceStatusOf(response, boundary);
   }
 
   hasReusedProof(clause: Clause): boolean {

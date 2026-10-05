@@ -1,6 +1,6 @@
 .version-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 16px;
 
@@ -39,6 +39,65 @@
 .versions-panel,
 .difference-panel {
   overflow: hidden;
+}
+
+.finalize-blocker {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 13px 16px;
+  border: 1px solid #f0c36a;
+  border-radius: 7px;
+  background: #fff8e8;
+  color: #744600;
+
+  i {
+    margin-top: 2px;
+  }
+
+  strong {
+    display: block;
+    font-size: 13px;
+  }
+
+  span {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.55;
+  }
+}
+
+.proof-blocker-panel {
+  margin-bottom: 16px;
+}
+
+.binding-row {
+  background: #f6f9f9;
+
+  .binding-list {
+    display: grid;
+    gap: 4px;
+    margin: 6px 0 0;
+    padding-left: 18px;
+
+    li {
+      color: #425a62;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+  }
+}
+
+.text-link {
+  color: #17706d;
+  font-size: 12px;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .clarification-cards {

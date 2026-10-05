@@ -19,6 +19,9 @@ import {
   roleProfiles,
   type Clarification,
   type Clause,
+  type ProofBoundary,
+  type ProofReferenceStatus,
+  type ProofSnapshotBinding,
   type SupplierResponse,
 } from "../../core/models/review.models";
 import { ReviewActions } from "../../core/state/review.actions";
@@ -27,10 +30,12 @@ import {
   selectClauses,
   selectPendingClarifications,
   selectRole,
+  selectUnconfirmedProofReferences,
   selectVersions,
 } from "../../core/state/review.selectors";
 import {
   ClarificationTagComponent,
+  ProofReferenceTagComponent,
   StatusTagComponent,
   VersionTagComponent,
 } from "../../shared/status-tag.component";
@@ -39,6 +44,13 @@ interface PendingClarification {
   clause: Clause;
   response: SupplierResponse;
   clarification: Clarification;
+}
+
+interface UnconfirmedReference {
+  clause: Clause;
+  response: SupplierResponse;
+  boundary: ProofBoundary | null;
+  status: ProofReferenceStatus;
 }
 
 @Component({
@@ -54,6 +66,7 @@ interface PendingClarification {
     TagModule,
     TextareaModule,
     ClarificationTagComponent,
+    ProofReferenceTagComponent,
     StatusTagComponent,
     VersionTagComponent,
   ],
@@ -77,12 +90,21 @@ export class ReviewPage {
     this.store.select(selectPendingClarifications),
     { initialValue: [] as PendingClarification[] },
   );
+  readonly unconfirmedReferences = toSignal(
+    this.store.select(selectUnconfirmedProofReferences),
+    { initialValue: [] as UnconfirmedReference[] },
+  );
   readonly finalizeVisible = signal(false);
   readonly responseVisible = signal(false);
   readonly selectedClarification = signal<PendingClarification | null>(null);
   readonly canFinalize = computed(() => this.role() === "chair");
   readonly canRespond = computed(() =>
     ["procurement", "chair"].includes(this.role()),
+  );
+  readonly finalizeBlocked = computed(
+    () =>
+      this.pendingClarifications().length > 0 ||
+      this.unconfirmedReferences().length > 0,
   );
   readonly differences = computed(() =>
     this.clauses().flatMap((clause) =>
@@ -156,5 +178,30 @@ export class ReviewPage {
       }),
     );
     this.responseVisible.set(false);
+  }
+
+  proofStatus(item: UnconfirmedReference): ProofReferenceStatus {
+    return item.status;
+  }
+
+  bindingSummary(bindings: ProofSnapshotBinding[] | undefined): string {
+    if (!bindings || bindings.length === 0) {
+      return "未固化证明绑定";
+    }
+    const responses = bindings.reduce(
+      (count, binding) => count + binding.responseIds.length,
+      0,
+    );
+    return `固化 ${bindings.length} 份证明版本 · ${responses} 个适用响应`;
+  }
+
+  bindingDetail(binding: ProofSnapshotBinding): string {
+    return [
+      `V${binding.version} ${binding.versionLabel}`,
+      `${binding.supplierName} · ${binding.clauseIds.length} 条款`,
+      `适用 ${binding.responseIds.length} 响应`,
+      `裁定人 ${binding.registeredBy}`,
+      `确认人 ${binding.confirmedBy.length ? binding.confirmedBy.join("、") : "无"}`,
+    ].join("；");
   }
 }

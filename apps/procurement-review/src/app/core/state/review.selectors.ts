@@ -3,6 +3,8 @@ import type {
   Clause,
   ClauseTreeNode,
   ComplianceStatus,
+  ProofBoundary,
+  ProofReferenceStatus,
   ReviewState,
   SupplierResponse,
 } from "../models/review.models";
@@ -13,6 +15,11 @@ export const selectReviewState =
 export const selectClauses = createSelector(
   selectReviewState,
   (state) => state.clauses,
+);
+
+export const selectProofBoundaries = createSelector(
+  selectReviewState,
+  (state) => state.proofBoundaries,
 );
 
 export const selectVersions = createSelector(
@@ -192,9 +199,34 @@ export const selectPendingClarifications = createSelector(
     ),
 );
 
+export const selectProofReferenceItems = createSelector(
+  selectClauses,
+  selectProofBoundaries,
+  (clauses, boundaries) => {
+    const boundaryByFingerprint = new Map(
+      boundaries.map((boundary) => [boundary.fingerprint, boundary]),
+    );
+    return clauses.flatMap((clause) =>
+      clause.responses.map((response) => ({
+        clause,
+        response,
+        boundary:
+          boundaryByFingerprint.get(response.proofFingerprint) ?? null,
+        status: proofReferenceStatusOf(response, boundaryByFingerprint.get(response.proofFingerprint) ?? null),
+      })),
+    );
+  },
+);
+
+export const selectUnconfirmedProofReferences = createSelector(
+  selectProofReferenceItems,
+  (items) => items.filter((item) => item.status !== "confirmed"),
+);
+
 export const selectReusedProofs = createSelector(
   selectClauses,
-  (clauses) => {
+  selectProofBoundaries,
+  (clauses, boundaries) => {
     const counts = new Map<
       string,
       Array<{ clause: Clause; response: SupplierResponse }>
@@ -206,11 +238,39 @@ export const selectReusedProofs = createSelector(
         counts.set(response.proofFingerprint, current);
       });
     });
+    const boundaryByFingerprint = new Map(
+      boundaries.map((boundary) => [boundary.fingerprint, boundary]),
+    );
     return Array.from(counts.entries())
       .filter(([, entries]) => entries.length > 1)
-      .map(([fingerprint, entries]) => ({ fingerprint, entries }));
+      .map(([fingerprint, entries]) => ({
+        fingerprint,
+        entries,
+        boundary: boundaryByFingerprint.get(fingerprint) ?? null,
+      }));
   },
 );
+
+export const proofReferenceStatusOf = (
+  response: SupplierResponse,
+  boundary: ProofBoundary | null,
+): ProofReferenceStatus => {
+  if (!boundary) {
+    return "unregistered";
+  }
+  if (boundary.withdrawn) {
+    return "stale";
+  }
+  const inScope =
+    boundary.supplierId === response.supplierId &&
+    boundary.clauseIds.includes(response.clauseId);
+  if (!inScope) {
+    return "out_of_scope";
+  }
+  return response.proofConfirmRound === boundary.boundaryVersion
+    ? "confirmed"
+    : "stale";
+};
 
 export const responseDecisionSummary = (
   response: SupplierResponse,

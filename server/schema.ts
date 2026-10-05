@@ -32,6 +32,43 @@ export const typeDefs = parse(`
     finalized
   }
 
+  enum ProofReferenceStatus {
+    unregistered
+    confirmed
+    stale
+    out_of_scope
+  }
+
+  type ProofBoundary {
+    fingerprint: String!
+    attachmentName: String!
+    version: Int!
+    versionLabel: String!
+    supplierId: String!
+    supplierName: String!
+    clauseIds: [String!]!
+    boundaryVersion: Int!
+    withdrawn: Boolean!
+    createdBy: String!
+    createdAt: String!
+    updatedBy: String!
+    updatedAt: String!
+  }
+
+  type ProofSnapshotBinding {
+    fingerprint: String!
+    attachmentName: String!
+    version: Int!
+    versionLabel: String!
+    supplierId: String!
+    supplierName: String!
+    clauseIds: [String!]!
+    responseIds: [String!]!
+    registeredBy: String!
+    confirmedBy: [String!]!
+    confirmedAt: String!
+  }
+
   type Clause {
     id: ID!
     code: String!
@@ -83,6 +120,11 @@ export const typeDefs = parse(`
     submittedBy: String!
     submittedAt: String!
     reviewRound: Int!
+    proofConfirmRound: Int!
+    proofConfirmedAt: String
+    proofConfirmedBy: String
+    proofReferenceStatus: ProofReferenceStatus!
+    proofBoundary: ProofBoundary
     reviews: [ReviewerOpinion!]!
     clarifications: [Clarification!]!
   }
@@ -98,6 +140,7 @@ export const typeDefs = parse(`
     clauseCount: Int!
     responseCount: Int!
     contentHash: String!
+    proofBindings: [ProofSnapshotBinding!]!
   }
 
   type AuditLog {
@@ -117,6 +160,8 @@ export const typeDefs = parse(`
     overdueClarifications: Int!
     reusedProofs: Int!
     activeVersion: String!
+    unconfirmedProofs: Int!
+    staleProofConclusions: Int!
   }
 
   type Supplier {
@@ -126,6 +171,7 @@ export const typeDefs = parse(`
 
   type WorkspaceData {
     clauses: [Clause!]!
+    proofBoundaries: [ProofBoundary!]!
     versions: [ReviewVersion!]!
     auditLogs: [AuditLog!]!
     dashboard: DashboardStats!
@@ -160,6 +206,50 @@ export const typeDefs = parse(`
     role: ReviewRole!
   }
 
+  input RegisterProofBoundaryInput {
+    fingerprint: String!
+    supplierId: String!
+    clauseIds: [String!]!
+    versionLabel: String!
+    actor: String!
+    role: ReviewRole!
+    expectedBoundaryVersion: Int!
+    draftOnly: Boolean!
+  }
+
+  input UpdateProofVersionInput {
+    fingerprint: String!
+    versionLabel: String!
+    actor: String!
+    role: ReviewRole!
+  }
+
+  input WithdrawProofInput {
+    fingerprint: String!
+    actor: String!
+    role: ReviewRole!
+  }
+
+  input ConfirmProofReferenceInput {
+    responseId: ID!
+    actor: String!
+    role: ReviewRole!
+  }
+
+  type RegisterProofBoundaryPayload {
+    boundary: ProofBoundary
+    conflict: Boolean!
+    serverBoundary: ProofBoundary
+    draftSaved: Boolean!
+    affectedResponseIds: [ID!]!
+  }
+
+  type ProofChangePayload {
+    boundary: ProofBoundary!
+    affectedResponseIds: [ID!]!
+    invalidatedVersionIds: [ID!]!
+  }
+
   type Query {
     workspace: WorkspaceData!
     dashboard: DashboardStats!
@@ -169,6 +259,10 @@ export const typeDefs = parse(`
     submitAssessment(input: AssessmentInput!): ReviewerOpinion!
     requestClarification(input: ClarificationInput!): Clarification!
     respondClarification(input: ClarificationResponseInput!): Clarification!
+    registerProofBoundary(input: RegisterProofBoundaryInput!): RegisterProofBoundaryPayload!
+    updateProofVersion(input: UpdateProofVersionInput!): ProofChangePayload!
+    withdrawProof(input: WithdrawProofInput!): ProofChangePayload!
+    confirmProofReference(input: ConfirmProofReferenceInput!): SupplierResponse!
     finalizeVersion(input: FinalizeVersionInput!): ReviewVersion!
     resetReviewData: Boolean!
   }

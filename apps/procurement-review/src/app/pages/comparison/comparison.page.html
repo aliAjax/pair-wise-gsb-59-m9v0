@@ -138,6 +138,7 @@
               @if (response) {
                 <div class="cell-stack">
                   <app-status-tag [status]="response.status" />
+                  <app-proof-reference-tag [status]="proofStatus(response)" />
                   @if (clause.type === "scoring") {
                     <strong class="score">{{ response.claimedScore }} 分</strong>
                   }

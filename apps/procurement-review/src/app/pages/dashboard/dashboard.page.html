@@ -47,7 +47,21 @@
       <article class="metric">
         <span>证明重复使用</span>
         <strong>{{ stats.reusedProofs }}</strong>
-        <small>需人工确认适用范围</small>
+        <small>需登记适用供应商与条款范围</small>
+      </article>
+      <article class="metric">
+        <span>未确认证明引用</span>
+        <strong [class.danger]="stats.unconfirmedProofs > 0">
+          {{ stats.unconfirmedProofs }}
+        </strong>
+        <small>未确认引用会拦住签字定稿</small>
+      </article>
+      <article class="metric">
+        <span>失效/越界结论</span>
+        <strong [class.danger]="stats.staleProofConclusions > 0">
+          {{ stats.staleProofConclusions }}
+        </strong>
+        <small>材料更新或撤回后已退回重审</small>
       </article>
       <article class="metric">
         <span>当前工作版本</span>

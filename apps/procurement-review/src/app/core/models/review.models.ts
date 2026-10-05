@@ -11,6 +11,11 @@ export type ReviewRole =
   | "chair";
 export type ClarificationStatus = "open" | "responded" | "overdue";
 export type VersionStatus = "draft" | "finalized";
+export type ProofReferenceStatus =
+  | "unregistered"
+  | "confirmed"
+  | "stale"
+  | "out_of_scope";
 
 export interface ReviewerOpinion {
   id: string;
@@ -49,8 +54,43 @@ export interface SupplierResponse {
   submittedBy: string;
   submittedAt: string;
   reviewRound: number;
+  proofConfirmRound: number;
+  proofConfirmedAt?: string | null;
+  proofConfirmedBy?: string | null;
+  proofReferenceStatus: ProofReferenceStatus;
+  proofBoundary?: ProofBoundary | null;
   reviews: ReviewerOpinion[];
   clarifications: Clarification[];
+}
+
+export interface ProofBoundary {
+  fingerprint: string;
+  attachmentName: string;
+  version: number;
+  versionLabel: string;
+  supplierId: string;
+  supplierName: string;
+  clauseIds: string[];
+  boundaryVersion: number;
+  withdrawn: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+
+export interface ProofSnapshotBinding {
+  fingerprint: string;
+  attachmentName: string;
+  version: number;
+  versionLabel: string;
+  supplierId: string;
+  supplierName: string;
+  clauseIds: string[];
+  responseIds: string[];
+  registeredBy: string;
+  confirmedBy: string[];
+  confirmedAt: string;
 }
 
 export interface Clause {
@@ -83,6 +123,7 @@ export interface ReviewVersion {
   clauseCount: number;
   responseCount: number;
   contentHash: string;
+  proofBindings: ProofSnapshotBinding[];
 }
 
 export interface AuditLog {
@@ -102,6 +143,8 @@ export interface DashboardStats {
   overdueClarifications: number;
   reusedProofs: number;
   activeVersion: string;
+  unconfirmedProofs: number;
+  staleProofConclusions: number;
 }
 
 export interface Supplier {
@@ -118,6 +161,7 @@ export interface ClauseFilters {
 
 export interface ReviewState {
   clauses: Clause[];
+  proofBoundaries: ProofBoundary[];
   versions: ReviewVersion[];
   auditLogs: AuditLog[];
   dashboard?: DashboardStats;
@@ -134,6 +178,7 @@ export interface ReviewState {
 export interface WorkspaceQueryResult {
   workspace: {
     clauses: Clause[];
+    proofBoundaries: ProofBoundary[];
     versions: ReviewVersion[];
     auditLogs: AuditLog[];
     dashboard: DashboardStats;
@@ -169,6 +214,50 @@ export interface FinalizeVersionInput {
   role: ReviewRole;
 }
 
+export interface RegisterProofBoundaryInput {
+  fingerprint: string;
+  supplierId: string;
+  clauseIds: string[];
+  versionLabel: string;
+  actor: string;
+  role: ReviewRole;
+  expectedBoundaryVersion: number;
+  draftOnly: boolean;
+}
+
+export interface RegisterProofBoundaryPayload {
+  boundary: ProofBoundary | null;
+  conflict: boolean;
+  serverBoundary: ProofBoundary | null;
+  draftSaved: boolean;
+  affectedResponseIds: string[];
+}
+
+export interface UpdateProofVersionInput {
+  fingerprint: string;
+  versionLabel: string;
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface WithdrawProofInput {
+  fingerprint: string;
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface ConfirmProofReferenceInput {
+  responseId: string;
+  actor: string;
+  role: ReviewRole;
+}
+
+export interface ProofChangePayload {
+  boundary: ProofBoundary;
+  affectedResponseIds: string[];
+  invalidatedVersionIds: string[];
+}
+
 export const roleProfiles: Record<ReviewRole, { name: string; label: string }> = {
   procurement: { name: "采购专员", label: "采购人员" },
   reviewer_a: { name: "陈评审", label: "技术评审员 A" },
@@ -194,4 +283,18 @@ export const statusSeverity: Record<ComplianceStatus, string> = {
   deviation: "danger",
   clarification: "warn",
   pending: "secondary",
+};
+
+export const proofReferenceLabels: Record<ProofReferenceStatus, string> = {
+  unregistered: "边界未登记",
+  confirmed: "引用已确认",
+  stale: "材料已更新待重认",
+  out_of_scope: "引用越界",
+};
+
+export const proofReferenceSeverity: Record<ProofReferenceStatus, string> = {
+  unregistered: "warn",
+  confirmed: "success",
+  stale: "danger",
+  out_of_scope: "danger",
 };

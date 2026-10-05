@@ -6,9 +6,16 @@ import type {
   Clarification,
   ClarificationInput,
   ClarificationResponseInput,
+  ConfirmProofReferenceInput,
   FinalizeVersionInput,
+  ProofChangePayload,
+  RegisterProofBoundaryInput,
+  RegisterProofBoundaryPayload,
   ReviewVersion,
   ReviewerOpinion,
+  SupplierResponse,
+  UpdateProofVersionInput,
+  WithdrawProofInput,
   WorkspaceQueryResult,
 } from "../models/review.models";
 
@@ -39,6 +46,25 @@ const WORKSPACE_QUERY = gql`
           submittedBy
           submittedAt
           reviewRound
+          proofConfirmRound
+          proofConfirmedAt
+          proofConfirmedBy
+          proofReferenceStatus
+          proofBoundary {
+            fingerprint
+            attachmentName
+            version
+            versionLabel
+            supplierId
+            supplierName
+            clauseIds
+            boundaryVersion
+            withdrawn
+            createdBy
+            createdAt
+            updatedBy
+            updatedAt
+          }
           reviews {
             id
             responseId
@@ -63,6 +89,21 @@ const WORKSPACE_QUERY = gql`
           }
         }
       }
+      proofBoundaries {
+        fingerprint
+        attachmentName
+        version
+        versionLabel
+        supplierId
+        supplierName
+        clauseIds
+        boundaryVersion
+        withdrawn
+        createdBy
+        createdAt
+        updatedBy
+        updatedAt
+      }
       versions {
         id
         version
@@ -74,6 +115,19 @@ const WORKSPACE_QUERY = gql`
         clauseCount
         responseCount
         contentHash
+        proofBindings {
+          fingerprint
+          attachmentName
+          version
+          versionLabel
+          supplierId
+          supplierName
+          clauseIds
+          responseIds
+          registeredBy
+          confirmedBy
+          confirmedAt
+        }
       }
       auditLogs {
         id
@@ -91,6 +145,8 @@ const WORKSPACE_QUERY = gql`
         overdueClarifications
         reusedProofs
         activeVersion
+        unconfirmedProofs
+        staleProofConclusions
       }
       suppliers {
         id
@@ -149,6 +205,106 @@ const RESPOND_CLARIFICATION = gql`
   }
 `;
 
+const REGISTER_PROOF_BOUNDARY = gql`
+  mutation RegisterProofBoundary($input: RegisterProofBoundaryInput!) {
+    registerProofBoundary(input: $input) {
+      boundary {
+        fingerprint
+        attachmentName
+        version
+        versionLabel
+        supplierId
+        supplierName
+        clauseIds
+        boundaryVersion
+        withdrawn
+        createdBy
+        createdAt
+        updatedBy
+        updatedAt
+      }
+      conflict
+      serverBoundary {
+        fingerprint
+        attachmentName
+        version
+        versionLabel
+        supplierId
+        supplierName
+        clauseIds
+        boundaryVersion
+        withdrawn
+        createdBy
+        createdAt
+        updatedBy
+        updatedAt
+      }
+      draftSaved
+      affectedResponseIds
+    }
+  }
+`;
+
+const UPDATE_PROOF_VERSION = gql`
+  mutation UpdateProofVersion($input: UpdateProofVersionInput!) {
+    updateProofVersion(input: $input) {
+      boundary {
+        fingerprint
+        attachmentName
+        version
+        versionLabel
+        supplierId
+        supplierName
+        clauseIds
+        boundaryVersion
+        withdrawn
+        createdBy
+        createdAt
+        updatedBy
+        updatedAt
+      }
+      affectedResponseIds
+      invalidatedVersionIds
+    }
+  }
+`;
+
+const WITHDRAW_PROOF = gql`
+  mutation WithdrawProof($input: WithdrawProofInput!) {
+    withdrawProof(input: $input) {
+      boundary {
+        fingerprint
+        attachmentName
+        version
+        versionLabel
+        supplierId
+        supplierName
+        clauseIds
+        boundaryVersion
+        withdrawn
+        createdBy
+        createdAt
+        updatedBy
+        updatedAt
+      }
+      affectedResponseIds
+      invalidatedVersionIds
+    }
+  }
+`;
+
+const CONFIRM_PROOF_REFERENCE = gql`
+  mutation ConfirmProofReference($input: ConfirmProofReferenceInput!) {
+    confirmProofReference(input: $input) {
+      id
+      proofConfirmRound
+      proofConfirmedAt
+      proofConfirmedBy
+      proofReferenceStatus
+    }
+  }
+`;
+
 const FINALIZE_VERSION = gql`
   mutation FinalizeVersion($input: FinalizeVersionInput!) {
     finalizeVersion(input: $input) {
@@ -162,6 +318,19 @@ const FINALIZE_VERSION = gql`
       clauseCount
       responseCount
       contentHash
+      proofBindings {
+        fingerprint
+        attachmentName
+        version
+        versionLabel
+        supplierId
+        supplierName
+        clauseIds
+        responseIds
+        registeredBy
+        confirmedBy
+        confirmedAt
+      }
     }
   }
 `;
@@ -241,6 +410,78 @@ export class ReviewGraphqlService {
             throw new Error("GraphQL 未返回澄清回复。");
           }
           return result.data.respondClarification;
+        }),
+      );
+  }
+
+  registerProofBoundary(
+    input: RegisterProofBoundaryInput,
+  ): Observable<RegisterProofBoundaryPayload> {
+    return this.apollo
+      .mutate<{ registerProofBoundary: RegisterProofBoundaryPayload }>({
+        mutation: REGISTER_PROOF_BOUNDARY,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回证明边界登记结果。");
+          }
+          return result.data.registerProofBoundary;
+        }),
+      );
+  }
+
+  updateProofVersion(input: UpdateProofVersionInput): Observable<ProofChangePayload> {
+    return this.apollo
+      .mutate<{ updateProofVersion: ProofChangePayload }>({
+        mutation: UPDATE_PROOF_VERSION,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回证明版本更新结果。");
+          }
+          return result.data.updateProofVersion;
+        }),
+      );
+  }
+
+  withdrawProof(input: WithdrawProofInput): Observable<ProofChangePayload> {
+    return this.apollo
+      .mutate<{ withdrawProof: ProofChangePayload }>({
+        mutation: WITHDRAW_PROOF,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回证明撤回结果。");
+          }
+          return result.data.withdrawProof;
+        }),
+      );
+  }
+
+  confirmProofReference(
+    input: ConfirmProofReferenceInput,
+  ): Observable<SupplierResponse> {
+    return this.apollo
+      .mutate<{ confirmProofReference: SupplierResponse }>({
+        mutation: CONFIRM_PROOF_REFERENCE,
+        variables: { input },
+        refetchQueries: ["ProcurementReviewWorkspace"],
+      })
+      .pipe(
+        map((result) => {
+          if (!result.data) {
+            throw new Error("GraphQL 未返回引用确认结果。");
+          }
+          return result.data.confirmProofReference;
         }),
       );
   }

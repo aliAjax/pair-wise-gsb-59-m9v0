@@ -4,6 +4,7 @@ import { ReviewActions } from "./review.actions";
 
 export const initialReviewState: ReviewState = {
   clauses: [],
+  proofBoundaries: [],
   versions: [],
   auditLogs: [],
   suppliers: [],
@@ -74,6 +75,10 @@ export const reviewReducer = createReducer(
     ReviewActions.submitAssessment,
     ReviewActions.requestClarification,
     ReviewActions.respondClarification,
+    ReviewActions.registerProofBoundary,
+    ReviewActions.updateProofVersion,
+    ReviewActions.withdrawProof,
+    ReviewActions.confirmProofReference,
     ReviewActions.finalizeVersion,
     ReviewActions.resetReviewData,
     (state) => ({

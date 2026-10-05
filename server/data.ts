@@ -5,6 +5,7 @@ import type {
   Clarification,
   Clause,
   ComplianceStatus,
+  ProofBoundary,
   ReviewDatabase,
   ReviewRole,
   ReviewerOpinion,
@@ -217,6 +218,23 @@ const responseOverrides: Record<
   },
 };
 
+/** 种子数据中已经逐响应确认过证明引用的响应 */
+const confirmedProofResponses: Record<
+  string,
+  { round: number; at: string; by: string }
+> = {
+  "C005-SUP-A": {
+    round: 1,
+    at: "2026-09-28T09:05:00+08:00",
+    by: "陈评审",
+  },
+  "C008-SUP-A": {
+    round: 1,
+    at: "2026-09-28T09:20:00+08:00",
+    by: "陈评审",
+  },
+};
+
 const reviewFactories: Array<{
   responseId: string;
   reviewer: string;
@@ -332,6 +350,7 @@ const makeResponse = (
     Math.round(maxScore * 0.64),
   ];
   const override = responseOverrides[id] ?? {};
+  const proofConfirmation = confirmedProofResponses[id];
   const base: SupplierResponse = {
     id,
     clauseId: clause.id,
@@ -350,6 +369,9 @@ const makeResponse = (
     submittedBy: `${supplier.name}投标专员`,
     submittedAt: `2026-09-${String(22 + ((clauseIndex + supplierIndex) % 4)).padStart(2, "0")}T16:20:00+08:00`,
     reviewRound: 1,
+    proofConfirmRound: proofConfirmation?.round ?? 0,
+    proofConfirmedAt: proofConfirmation?.at,
+    proofConfirmedBy: proofConfirmation?.by,
     reviews: [],
     clarifications: [],
   };
@@ -369,6 +391,24 @@ const responses: SupplierResponse[] = clauses.flatMap((clause, clauseIndex) =>
   ),
 );
 
+const proofBoundaries: ProofBoundary[] = [
+  {
+    fingerprint: "PROOF-SEC-CERT-2026",
+    attachmentName: "安全测评报告.pdf",
+    version: 2,
+    versionLabel: "2026 年复测版（V2）",
+    supplierId: "SUP-A",
+    supplierName: "华云数科",
+    clauseIds: ["C005", "C008"],
+    boundaryVersion: 1,
+    withdrawn: false,
+    createdBy: "陈评审",
+    createdAt: "2026-09-26T10:00:00+08:00",
+    updatedBy: "陈评审",
+    updatedAt: "2026-09-28T08:40:00+08:00",
+  },
+];
+
 const versions = [
   {
     id: "VER-001",
@@ -381,6 +421,21 @@ const versions = [
     clauseCount: clauses.length,
     responseCount: responses.length,
     contentHash: "a84f2d17",
+    proofBindings: [
+      {
+        fingerprint: "PROOF-SEC-CERT-2026",
+        attachmentName: "安全测评报告.pdf",
+        version: 1,
+        versionLabel: "初评备案版（V1）",
+        supplierId: "SUP-A",
+        supplierName: "华云数科",
+        clauseIds: ["C005", "C008"],
+        responseIds: ["C005-SUP-A", "C008-SUP-A"],
+        registeredBy: "陈评审",
+        confirmedBy: ["陈评审"],
+        confirmedAt: "2026-09-25T16:10:00+08:00",
+      },
+    ],
   },
   {
     id: "VER-002",
@@ -393,6 +448,7 @@ const versions = [
     clauseCount: clauses.length,
     responseCount: responses.length,
     contentHash: "d91c6b42",
+    proofBindings: [],
   },
 ];
 
@@ -429,11 +485,21 @@ const auditLogs: AuditLog[] = [
     entity: "VER-002",
     detail: "创建 V2 工作版本，保留 V1 定稿快照。",
   },
+  {
+    id: "AUD-005",
+    at: "2026-09-28T08:40:00+08:00",
+    actor: "陈评审",
+    action: "登记证明边界",
+    entity: "PROOF-SEC-CERT-2026",
+    detail:
+      "华云数科安全测评报告更新为 V2，适用范围限定 B.1.1、C.1.1 两个条款的引用。",
+  },
 ];
 
 const buildSeed = (): ReviewDatabase => ({
   clauses: structuredClone(clauses),
   responses: structuredClone(responses),
+  proofBoundaries: structuredClone(proofBoundaries),
   versions: structuredClone(versions),
   auditLogs: structuredClone(auditLogs),
   suppliers: structuredClone(suppliers),
